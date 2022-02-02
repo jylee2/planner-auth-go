@@ -7,12 +7,19 @@ import (
 	"api-go/database"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 	// "go.mongodb.org/mongo-driver/mongo"
 	// "go.mongodb.org/mongo-driver/mongo/options"
 	// "go.mongodb.org/mongo-driver/mongo/readpref"
 )
+
+type E struct {
+	Key   string
+	Value interface{}
+}
 
 func Register(c *fiber.Ctx) error {
 	var data map[string]string
@@ -28,7 +35,14 @@ func Register(c *fiber.Ctx) error {
 	// 	Email: data["email"],
 	// 	Password: password,
 	// }
-  user := bson.D{{"name", data["name"]}, {"email", data["email"]}, {"password", password}}
+	// filter := bson.D{primitive.E{Key: "autorefid", Value: "100"}}
+  // user := bson.D{{"name", data["name"]}, {"email", data["email"]}, {"password", password}}
+  user := bson.D{
+		primitive.E{Key: "uuid", Value: uuid.New()},
+		primitive.E{Key: "name", Value: data["name"]},
+		primitive.E{Key: "email", Value: data["email"]},
+		primitive.E{Key: "password", Value: password},
+	}
   fmt.Println("--------user: ", user)
 
 	client, _, _, err := database.Connect("mongodb://localhost:27017")
