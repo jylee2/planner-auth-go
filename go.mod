@@ -6,6 +6,8 @@ require github.com/gofiber/fiber/v2 v2.25.0
 
 require (
 	github.com/andybalholm/brotli v1.0.2 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gofiber/fiber v1.14.6 // indirect
 	github.com/gofiber/utils v0.0.10 // indirect
