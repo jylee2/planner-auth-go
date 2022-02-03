@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"time"
 
 	"api-go/database"
@@ -39,24 +38,12 @@ func Register(c *fiber.Ctx) error {
 
 	password, _ := bcrypt.GenerateFromPassword([]byte(data["password"]), 14) // cost: 14
 
-	// user := models.User{
-	// 	Uuid: uuid.New(),
-	// 	Name: data["name"],
-	// 	Email: data["email"],
-	// 	Password: password,
-	// }
-	// filter := bson.D{primitive.E{Key: "autorefid", Value: "100"}}
-  // user := bson.D{{"name", data["name"]}, {"email", data["email"]}, {"password", password}}
-
-	// fmt.Println("--------reflect.TypeOf(uuid.New()): ", reflect.TypeOf(uuid.New()))
-	// fmt.Println("--------reflect.TypeOf(uuid.New().String()): ", reflect.TypeOf(uuid.New().String()))
   user := bson.D{
 		primitive.E{Key: "uuid", Value: uuid.New().String()},
 		primitive.E{Key: "name", Value: data["name"]},
 		primitive.E{Key: "email", Value: data["email"]},
 		primitive.E{Key: "password", Value: password},
 	}
-  fmt.Println("--------user: ", user)
 
 	client, _, _, err := database.Connect(MongoUri)
   if err != nil {
@@ -68,15 +55,9 @@ func Register(c *fiber.Ctx) error {
 	filter := bson.D{
 		primitive.E{Key: "email", Value: data["email"]},
 	}
-  fmt.Println("--------filter: ", filter)
 
-	// retrieving the first document that match the filter
-	// var user bson.M
-	// retrieve all the documents that match the filter
+	// Find existing user
 	cursor, _ := usersCollection.Find(context.TODO(), filter)
-	fmt.Println("--------reflect.TypeOf(cursor): ", reflect.TypeOf(cursor))
-  fmt.Println("--------cursor: ", cursor)
-
 	// convert the cursor result to bson
 	var results []bson.M
 	// check for errors in the conversion
@@ -84,12 +65,7 @@ func Register(c *fiber.Ctx) error {
 		panic(err)
 	}
 
-	fmt.Println("--------reflect.TypeOf(results): ", reflect.TypeOf(results))
-	// display the documents retrieved
-	fmt.Println("displaying all results from the search query")
 	for _, result := range results {
-		fmt.Println("--------result: ", result)
-		// fmt.Println(result)
 		if result["email"] == data["email"] {
 			return c.JSON(fiber.Map{
 				"success": false,
@@ -100,17 +76,13 @@ func Register(c *fiber.Ctx) error {
 
   // insert a single document into a collection
   // create a bson.D object
-  // user := bson.D{{"fullName", "User 1"}, {"age", 30}}
+  // user := bson.D{{"name", "User 1"}, {"email", "test@test.com"}}
   // insert the bson object using InsertOne()
-  insertRes, insertErr := usersCollection.InsertOne(context.TODO(), user)
+  _, insertErr := usersCollection.InsertOne(context.TODO(), user)
   // check for errors in the insertion
   if insertErr != nil {
     panic(insertErr)
   }
-  // display the id of the newly inserted object
-  // fmt.Println(insertRes.InsertedID)
-  // fmt.Println(user, usersCollection)
-  fmt.Println("--------insertRes: ", insertRes)
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -131,49 +103,22 @@ func Login(c *fiber.Ctx) error {
 
   usersCollection := client.Database(MongoDB).Collection("users")
 
-	// create a search filer
-	// filter := bson.D{
-	// 	{"$and",
-	// 		bson.A{
-	// 			bson.D{
-	// 				{"age", bson.D{{"$gt", 25}}},
-	// 			},
-	// 		},
-	// 	},
-	// }
-	// filter := bson.D{
-	// 	primitive.E{Key: "uuid", Value: uuid.New()},
-	// 	primitive.E{Key: "name", Value: data["name"]},
-	// 	primitive.E{Key: "email", Value: data["email"]},
-	// 	primitive.E{Key: "password", Value: password},
-	// }
 	filter := bson.D{
 		primitive.E{Key: "email", Value: data["email"]},
 	}
-  fmt.Println("--------filter: ", filter)
 
 	// retrieving the first document that match the filter
 	// var user bson.M
 	var user models.User
 	// check for errors in the finding
 	if err = usersCollection.FindOne(context.TODO(), filter).Decode(&user); err != nil {
-		fmt.Println("--------usersCollection.FindOne err: ", err)
+		fmt.Println("--------Login usersCollection.FindOne Error: ", err)
 		// panic(err)
 		c.Status(fiber.StatusNotFound)
 		return c.JSON(fiber.Map{
 			"message": "User not found.",
 		})
 	}
-
-	// if user == nil {
-	// 	c.Status(fiber.StatusNotFound)
-	// 	return c.JSON(fiber.Map{
-	// 		"message": "User not found.",
-	// 	})
-  // }
-
-	// display the document retrieved
-	fmt.Println("--------user: ", user)
 
 	if err := bcrypt.CompareHashAndPassword(user.Password, []byte(data["password"])); err != nil {
 		c.Status(fiber.StatusBadRequest)
@@ -184,7 +129,6 @@ func Login(c *fiber.Ctx) error {
 
 	jwtExpiry := time.Now().Add(time.Hour * 24) // 24 hours
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
-		// Issuer: strconv.FormatUint(uint64(user.Uuid), 10),
 		Issuer: user.Uuid,
 		ExpiresAt: jwtExpiry.Unix(),
 	})
@@ -227,20 +171,18 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 	}
 
 	claims := token.Claims.(*jwt.StandardClaims) // convert to StandardClaims
-	fmt.Println("--------claims: ", claims)
 
 	client, _, _, err := database.Connect(MongoUri)
   if err != nil {
 		panic(err)
   }
-
   usersCollection := client.Database(MongoDB).Collection("users")
 	filter := bson.D{
 		primitive.E{Key: "uuid", Value: claims.Issuer},
 	}
 
 	var user models.User
-	// check for errors in the finding
+	// Find user by uuid
 	if err = usersCollection.FindOne(context.TODO(), filter).Decode(&user); err != nil {
 		// panic(err)
 		c.Status(fiber.StatusNotFound)
@@ -248,7 +190,6 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 			"message": "User not found.",
 		})
 	}
-	fmt.Println("--------user: ", user)
 
 	return c.JSON(user)
 }
