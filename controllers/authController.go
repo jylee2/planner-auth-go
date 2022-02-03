@@ -188,7 +188,7 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 	if err != nil {
 		c.Status(fiber.StatusUnauthorized)
 		return c.JSON(fiber.Map{
-			"message": "The user is not logged in.",
+			"message": "Unauthenticated.",
 		})
 	}
 
@@ -217,4 +217,19 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 	fmt.Println("--------user: ", user)
 
 	return c.JSON(user)
+}
+
+func Logout(c *fiber.Ctx) error {
+	cookie := fiber.Cookie{
+		Name: CookieName,
+		Value: "",
+		Expires: time.Now().Add(-time.Hour), // expires 1 hour ago
+		HTTPOnly: true,
+	}
+
+	c.Cookie(&cookie)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+	})
 }
