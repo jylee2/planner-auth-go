@@ -3,10 +3,13 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
 
 	"api-go/database"
 	"api-go/models"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,6 +24,8 @@ type E struct {
 	Key   string
 	Value interface{}
 }
+
+const SecretKey = "secret"
 
 func Register(c *fiber.Ctx) error {
 	var data map[string]string
@@ -138,5 +143,31 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(user)
+	jwtExpiry := time.Now().Add(time.Hour * 24) // 24 hours
+	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
+		Issuer: strconv.FormatUint(uint64(user.Uuid), 10),
+		ExpiresAt: jwtExpiry.Unix(),
+	})
+
+	token, err := claims.SignedString([]byte(SecretKey))
+
+	if err != nil {
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"message": "Could not login.",
+		})
+	}
+
+	cookie := fiber.Cookie{
+		Name: "jwt",
+		Value: token,
+		Expires: jwtExpiry,
+		HTTPOnly: true,
+	}
+
+	c.Cookie(&cookie)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+	})
 }

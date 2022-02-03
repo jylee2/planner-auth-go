@@ -1,17 +1,20 @@
 package main
 
 import (
-	"fmt"
-
 	"api-go/routes"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func main() {
   app := fiber.New()
+
+  app.Use(cors.New(cors.Config{
+    AllowCredentials: true, // for the cookies
+  }))
+
   routes.Setup(app)
 
-  fmt.Println("--------Hello, World!")
   app.Listen(":8000")
 }
