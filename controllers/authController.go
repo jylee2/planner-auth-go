@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"api-go/database"
@@ -63,6 +64,39 @@ func Register(c *fiber.Ctx) error {
   }
 
   usersCollection := client.Database(MongoDB).Collection("users")
+
+	filter := bson.D{
+		primitive.E{Key: "email", Value: data["email"]},
+	}
+  fmt.Println("--------filter: ", filter)
+
+	// retrieving the first document that match the filter
+	// var user bson.M
+	// retrieve all the documents that match the filter
+	cursor, _ := usersCollection.Find(context.TODO(), filter)
+	fmt.Println("--------reflect.TypeOf(cursor): ", reflect.TypeOf(cursor))
+  fmt.Println("--------cursor: ", cursor)
+
+	// convert the cursor result to bson
+	var results []bson.M
+	// check for errors in the conversion
+	if err = cursor.All(context.TODO(), &results); err != nil {
+		panic(err)
+	}
+
+	fmt.Println("--------reflect.TypeOf(results): ", reflect.TypeOf(results))
+	// display the documents retrieved
+	fmt.Println("displaying all results from the search query")
+	for _, result := range results {
+		fmt.Println("--------result: ", result)
+		// fmt.Println(result)
+		if result["email"] == data["email"] {
+			return c.JSON(fiber.Map{
+				"success": false,
+				"message": "Email already exists.",
+			})
+		}
+	}
 
   // insert a single document into a collection
   // create a bson.D object
