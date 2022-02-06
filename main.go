@@ -8,13 +8,15 @@ import (
 )
 
 func main() {
-  app := fiber.New()
+	app := fiber.New()
 
-  app.Use(cors.New(cors.Config{
-    AllowCredentials: true, // for the cookies
-  }))
+	app.Use(cors.New(cors.Config{
+		AllowCredentials: true, // for the cookies
+		AllowOrigins:     "http://localhost:3000, https://gofiber.net",
+		AllowHeaders:     "Origin, Content-Type, Accept",
+	}))
 
-  routes.Setup(app)
+	routes.Setup(app)
 
-  app.Listen(":8000")
+	app.Listen(":8101")
 }
