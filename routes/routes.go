@@ -7,9 +7,10 @@ import (
 )
 
 func Setup(app *fiber.App) {
-  app.Get("/api/user", controllers.GetUserFromCookie)
+	app.Get("/api/user", controllers.GetUserFromCookie)
+	app.Get("/api/user/:uuid", controllers.GetUserByUuid)
 
-  app.Post("/api/register", controllers.Register)
-  app.Post("/api/login", controllers.Login)
-  app.Post("/api/logout", controllers.Logout)
+	app.Post("/api/register", controllers.Register)
+	app.Post("/api/login", controllers.Login)
+	app.Post("/api/logout", controllers.Logout)
 }
