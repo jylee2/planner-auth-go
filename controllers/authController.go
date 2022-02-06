@@ -28,6 +28,8 @@ const SecretKey = "secret"
 const CookieName = "jwt"
 const MongoUri = "mongodb://localhost:27017"
 const MongoDB = "testing-go"
+const jwtExpiryHours = 1 // 1 hour
+const Model = "users"
 
 func Register(c *fiber.Ctx) error {
 	var data map[string]string
@@ -38,7 +40,7 @@ func Register(c *fiber.Ctx) error {
 
 	password, _ := bcrypt.GenerateFromPassword([]byte(data["password"]), 14) // cost: 14
 
-  user := bson.D{
+	user := bson.D{
 		primitive.E{Key: "uuid", Value: uuid.New().String()},
 		primitive.E{Key: "name", Value: data["name"]},
 		primitive.E{Key: "email", Value: data["email"]},
@@ -46,11 +48,11 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	client, _, _, err := database.Connect(MongoUri)
-  if err != nil {
+	if err != nil {
 		panic(err)
-  }
+	}
 
-  usersCollection := client.Database(MongoDB).Collection("users")
+	usersCollection := client.Database(MongoDB).Collection(Model)
 
 	filter := bson.D{
 		primitive.E{Key: "email", Value: data["email"]},
@@ -74,15 +76,15 @@ func Register(c *fiber.Ctx) error {
 		}
 	}
 
-  // insert a single document into a collection
-  // create a bson.D object
-  // user := bson.D{{"name", "User 1"}, {"email", "test@test.com"}}
-  // insert the bson object using InsertOne()
-  _, insertErr := usersCollection.InsertOne(context.TODO(), user)
-  // check for errors in the insertion
-  if insertErr != nil {
-    panic(insertErr)
-  }
+	// insert a single document into a collection
+	// create a bson.D object
+	// user := bson.D{{"name", "User 1"}, {"email", "test@test.com"}}
+	// insert the bson object using InsertOne()
+	_, insertErr := usersCollection.InsertOne(context.TODO(), user)
+	// check for errors in the insertion
+	if insertErr != nil {
+		panic(insertErr)
+	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -97,11 +99,11 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	client, _, _, err := database.Connect(MongoUri)
-  if err != nil {
+	if err != nil {
 		panic(err)
-  }
+	}
 
-  usersCollection := client.Database(MongoDB).Collection("users")
+	usersCollection := client.Database(MongoDB).Collection(Model)
 
 	filter := bson.D{
 		primitive.E{Key: "email", Value: data["email"]},
@@ -127,9 +129,9 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
-	jwtExpiry := time.Now().Add(time.Hour * 24) // 24 hours
+	jwtExpiry := time.Now().Add(time.Hour * jwtExpiryHours)
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
-		Issuer: user.Uuid,
+		Issuer:    user.Uuid,
 		ExpiresAt: jwtExpiry.Unix(),
 	})
 
@@ -143,16 +145,17 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	cookie := fiber.Cookie{
-		Name: CookieName,
-		Value: token,
-		Expires: jwtExpiry,
+		Name:     CookieName,
+		Value:    token,
+		Expires:  jwtExpiry,
 		HTTPOnly: true,
 	}
 
 	c.Cookie(&cookie)
 
 	return c.JSON(fiber.Map{
-		"success": true,
+		"success":  true,
+		"userUuid": user.Uuid,
 	})
 }
 
@@ -173,10 +176,10 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 	claims := token.Claims.(*jwt.StandardClaims) // convert to StandardClaims
 
 	client, _, _, err := database.Connect(MongoUri)
-  if err != nil {
+	if err != nil {
 		panic(err)
-  }
-  usersCollection := client.Database(MongoDB).Collection("users")
+	}
+	usersCollection := client.Database(MongoDB).Collection(Model)
 	filter := bson.D{
 		primitive.E{Key: "uuid", Value: claims.Issuer},
 	}
@@ -194,11 +197,34 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
+func GetUserByUuid(c *fiber.Ctx) error {
+	client, _, _, err := database.Connect(MongoUri)
+	if err != nil {
+		panic(err)
+	}
+	usersCollection := client.Database(MongoDB).Collection(Model)
+	filter := bson.D{
+		primitive.E{Key: "uuid", Value: c.Params("uuid")},
+	}
+
+	var user models.User
+	// Find user by uuid
+	if err = usersCollection.FindOne(context.TODO(), filter).Decode(&user); err != nil {
+		// panic(err)
+		c.Status(fiber.StatusNotFound)
+		return c.JSON(fiber.Map{
+			"message": "User not found.",
+		})
+	}
+
+	return c.JSON(user)
+}
+
 func Logout(c *fiber.Ctx) error {
 	cookie := fiber.Cookie{
-		Name: CookieName,
-		Value: "",
-		Expires: time.Now().Add(-time.Hour), // expires 1 hour ago
+		Name:     CookieName,
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour), // expires 1 hour ago
 		HTTPOnly: true,
 	}
 
