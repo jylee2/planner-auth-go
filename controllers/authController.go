@@ -118,6 +118,7 @@ func Login(c *fiber.Ctx) error {
 		// panic(err)
 		c.Status(fiber.StatusNotFound)
 		return c.JSON(fiber.Map{
+			"success": false,
 			"message": "User not found.",
 		})
 	}
@@ -125,7 +126,8 @@ func Login(c *fiber.Ctx) error {
 	if err := bcrypt.CompareHashAndPassword(user.Password, []byte(data["password"])); err != nil {
 		c.Status(fiber.StatusBadRequest)
 		return c.JSON(fiber.Map{
-			"message": "Incorrect password.",
+			"success": false,
+			"message": "Incorrect email or password.",
 		})
 	}
 
@@ -140,6 +142,7 @@ func Login(c *fiber.Ctx) error {
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError)
 		return c.JSON(fiber.Map{
+			"success": false,
 			"message": "Could not login.",
 		})
 	}
@@ -151,11 +154,13 @@ func Login(c *fiber.Ctx) error {
 		HTTPOnly: true,
 	}
 
+	// Set the cookie
 	c.Cookie(&cookie)
 
 	return c.JSON(fiber.Map{
-		"success":  true,
-		"userUuid": user.Uuid,
+		"success": true,
+		"jwt":     token,
+		// "userUuid": user.Uuid,
 	})
 }
 
@@ -198,6 +203,20 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 }
 
 func GetUserByUuid(c *fiber.Ctx) error {
+	// cookie := c.Params(CookieName)
+
+	// _, err := jwt.ParseWithClaims(cookie, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
+	// 	return []byte(SecretKey), nil
+	// })
+
+	// fmt.Println("--------err: ", err)
+	// if err != nil {
+	// 	c.Status(fiber.StatusUnauthorized)
+	// 	return c.JSON(fiber.Map{
+	// 		"message": "Unauthenticated.",
+	// 	})
+	// }
+
 	client, _, _, err := database.Connect(MongoUri)
 	if err != nil {
 		panic(err)
