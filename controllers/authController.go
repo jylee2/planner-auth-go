@@ -43,6 +43,7 @@ func Register(c *fiber.Ctx) error {
 	user := bson.D{
 		primitive.E{Key: "uuid", Value: uuid.New().String()},
 		primitive.E{Key: "name", Value: data["name"]},
+		primitive.E{Key: "username", Value: data["username"]},
 		primitive.E{Key: "email", Value: data["email"]},
 		primitive.E{Key: "password", Value: password},
 	}
@@ -55,7 +56,7 @@ func Register(c *fiber.Ctx) error {
 	usersCollection := client.Database(MongoDB).Collection(Model)
 
 	filter := bson.D{
-		primitive.E{Key: "email", Value: data["email"]},
+		primitive.E{Key: "username", Value: data["username"]},
 	}
 
 	// Find existing user
@@ -68,10 +69,10 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	for _, result := range results {
-		if result["email"] == data["email"] {
+		if result["username"] == data["username"] {
 			return c.JSON(fiber.Map{
 				"success": false,
-				"message": "Email already exists.",
+				"message": "Username already exists.",
 			})
 		}
 	}
@@ -106,7 +107,7 @@ func Login(c *fiber.Ctx) error {
 	usersCollection := client.Database(MongoDB).Collection(Model)
 
 	filter := bson.D{
-		primitive.E{Key: "email", Value: data["email"]},
+		primitive.E{Key: "username", Value: data["username"]},
 	}
 
 	// retrieving the first document that match the filter
@@ -116,10 +117,12 @@ func Login(c *fiber.Ctx) error {
 	if err = usersCollection.FindOne(context.TODO(), filter).Decode(&user); err != nil {
 		fmt.Println("--------Login usersCollection.FindOne Error: ", err)
 		// panic(err)
-		c.Status(fiber.StatusNotFound)
+		// User not found.
+		// c.Status(fiber.StatusNotFound)
+		c.Status(fiber.StatusBadRequest)
 		return c.JSON(fiber.Map{
 			"success": false,
-			"message": "User not found.",
+			"message": "Incorrect username or password.",
 		})
 	}
 
@@ -127,7 +130,7 @@ func Login(c *fiber.Ctx) error {
 		c.Status(fiber.StatusBadRequest)
 		return c.JSON(fiber.Map{
 			"success": false,
-			"message": "Incorrect email or password.",
+			"message": "Incorrect username or password.",
 		})
 	}
 
