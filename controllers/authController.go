@@ -3,6 +3,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"api-go/database"
@@ -11,6 +13,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
@@ -24,12 +27,17 @@ type E struct {
 	Value interface{}
 }
 
-const SecretKey = "secret"
 const CookieName = "jwt"
-const MongoUri = "mongodb://localhost:27017"
-const MongoDB = "testing-go"
-const jwtExpiryHours = 1 // 1 hour
+const MongoDB = "auth-go"
 const Model = "users"
+
+func init() {
+	err := godotenv.Load(".env")
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+}
 
 func Register(c *fiber.Ctx) error {
 	var data map[string]string
@@ -48,7 +56,7 @@ func Register(c *fiber.Ctx) error {
 		primitive.E{Key: "password", Value: password},
 	}
 
-	client, _, _, err := database.Connect(MongoUri)
+	client, _, _, err := database.Connect(os.Getenv("MONGODB_URI"))
 	if err != nil {
 		panic(err)
 	}
@@ -99,7 +107,7 @@ func Login(c *fiber.Ctx) error {
 		return err
 	}
 
-	client, _, _, err := database.Connect(MongoUri)
+	client, _, _, err := database.Connect(os.Getenv("MONGODB_URI"))
 	if err != nil {
 		panic(err)
 	}
@@ -134,13 +142,18 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
-	jwtExpiry := time.Now().Add(time.Hour * jwtExpiryHours)
+	expiryInHours, err := time.ParseDuration(os.Getenv("JWT_EXPIRY_IN_HOURS"))
+	if err != nil {
+		panic(err)
+	}
+
+	jwtExpiry := time.Now().Add(time.Hour * expiryInHours)
 	claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
 		Issuer:    user.Uuid,
 		ExpiresAt: jwtExpiry.Unix(),
 	})
 
-	token, err := claims.SignedString([]byte(SecretKey))
+	token, err := claims.SignedString([]byte(os.Getenv("AUTH_SECRET")))
 
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError)
@@ -171,7 +184,7 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 	cookie := c.Cookies(CookieName)
 
 	token, err := jwt.ParseWithClaims(cookie, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(SecretKey), nil
+		return []byte(os.Getenv("AUTH_SECRET")), nil
 	})
 
 	if err != nil {
@@ -183,7 +196,7 @@ func GetUserFromCookie(c *fiber.Ctx) error {
 
 	claims := token.Claims.(*jwt.StandardClaims) // convert to StandardClaims
 
-	client, _, _, err := database.Connect(MongoUri)
+	client, _, _, err := database.Connect(os.Getenv("MONGODB_URI"))
 	if err != nil {
 		panic(err)
 	}
@@ -209,7 +222,7 @@ func GetUserByUuid(c *fiber.Ctx) error {
 	// cookie := c.Params(CookieName)
 
 	// _, err := jwt.ParseWithClaims(cookie, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
-	// 	return []byte(SecretKey), nil
+	// 	return []byte(os.Getenv("AUTH_SECRET")), nil
 	// })
 
 	// fmt.Println("--------err: ", err)
@@ -220,7 +233,7 @@ func GetUserByUuid(c *fiber.Ctx) error {
 	// 	})
 	// }
 
-	client, _, _, err := database.Connect(MongoUri)
+	client, _, _, err := database.Connect(os.Getenv("MONGODB_URI"))
 	if err != nil {
 		panic(err)
 	}

@@ -12,7 +12,7 @@ func main() {
 
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true, // for the cookies
-		AllowOrigins:     "http://localhost:3000, https://gofiber.net",
+		AllowOrigins:     "http://localhost:3000, https://gofiber.net, https://jylee2.github.io/planner-react/",
 		AllowHeaders:     "Origin, Content-Type, Accept",
 	}))
 
